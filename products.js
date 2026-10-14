@@ -17,7 +17,8 @@ export const products = [
     slug: 'lain-tee-02',
     name: 'LAIN T-shirt',
     description: TSHIRT_DESCRIPTION,
-    price: 30000,
+    // TEMPORARY REAL-PAYMENT CHECK: restore to ARS 30000 immediately after the controlled Mercado Pago purchase.
+    price: 3,
     currency: 'ARS',
     category: 'wearing',
     images: { front: '/img/outfit/web/lain-frente.webp', back: '/img/outfit/web/lain-espalda.webp' },

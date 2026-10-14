@@ -117,14 +117,15 @@ test('checkout address hidden state overrides its grid layout', async () => {
   const css = await readFile(new URL('../checkout.css', import.meta.url), 'utf8');
   assert.match(css, /\.delivery-address\[hidden\]\s*\{\s*display:\s*none;/);
   const html = await readFile(new URL('../checkout.html', import.meta.url), 'utf8');
-  assert.match(html, /checkout\.css\?v=pickup-contract-2/);
-  assert.match(html, /checkout\.js\?v=checkout-pro-1/);
+  assert.match(html, /checkout\.css\?v=payment-ui-1/);
+  assert.match(html, /checkout\.js\?v=payment-ui-1/);
 });
 
 test('checkout mounts the official payment Brick inline after delivery without a duplicate submit button', async () => {
   const checkout = await readFile(new URL('../checkout.js', import.meta.url), 'utf8');
   assert.ok(checkout.indexOf('id="delivery-address"') < checkout.indexOf('id="cardPaymentBrick_container"'));
-  assert.match(checkout, /<fieldset class="shipping-methods" aria-labelledby="payment-title">\s*<legend id="payment-title">\$\{t\('payment'\)\}<\/legend>/);
+  assert.match(checkout, /<fieldset class="shipping-methods payment-methods" aria-labelledby="payment-title">\s*<legend id="payment-title">\$\{t\('payment'\)\}<\/legend>/);
+  assert.match(checkout, /class="payment-options"[\s\S]*t\('creditDebitCard'\)[\s\S]*t\('mercadoPago'\)/);
   assert.doesNotMatch(checkout, /<button type="submit"/);
   assert.match(checkout, /onSubmit: cardData => guardedIntegratedPayment/);
   assert.match(checkout, /order = await guardedCheckout[\s\S]*createPayment\(order\.id, cardData/);
@@ -133,11 +134,11 @@ test('checkout mounts the official payment Brick inline after delivery without a
   assert.doesNotMatch(checkout, /payment-environment|payment-notice|testPaymentNotice/);
 });
 
-test('real T-shirts are purchasable at the configured ARS price without pending-price data', () => {
+test('real T-shirts are purchasable at their server-controlled ARS prices without pending-price data', () => {
   const shirts = products.filter(product => product.id.startsWith('lain-tee-'));
   assert.equal(shirts.length, 9);
   for (const shirt of shirts) {
-    assert.equal(shirt.price, 30000);
+    assert.equal(shirt.price, shirt.id === 'lain-tee-02' ? 3 : 30000);
     assert.equal(shirt.currency, 'ARS');
     assert.equal(shirt.available, true);
     assert.equal(shirt.shipping.weightKg, 0.3);
@@ -146,6 +147,7 @@ test('real T-shirts are purchasable at the configured ARS price without pending-
     assert.match(shirt.description.es, /100% algodón/);
     assert.match(shirt.description.en, /100% cotton/);
   }
+  assert.equal(products.find(product => product.id === 'lain-tee-02').name, 'LAIN T-shirt');
   assert.match(formatPrice(30000, 'ARS', 'es-AR'), /30\.000/);
   const store = { load: () => [], save: () => true, clear: () => {} };
   const cart = new CartService({ catalog: products, store });

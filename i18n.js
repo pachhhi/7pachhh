@@ -85,9 +85,9 @@ export const translations = {
     completePayment: 'Complete your payment.', testPaymentNotice: 'Mercado Pago TEST — no real charge will be made.', productionPaymentNotice: 'Secure payment processed by Mercado Pago.', loadingPayment: 'Loading secure payment form…',
     payNow: 'PAY', processingPayment: 'Processing payment…', paymentRejectedRetry: 'Payment was rejected. Check the details or try another card.',
     paymentStatusUnknown: 'The payment status could not be confirmed.', paymentFormError: 'The secure payment form reported an error. Please retry.', paymentSdkUnavailable: 'The secure payment form could not be loaded.',
-    creditCard: 'CREDIT CARD', creditCardCopy: 'Pay securely with the card form.', payWithMercadoPago: 'PAY WITH MERCADO PAGO',
+    creditCard: 'CREDIT CARD', creditDebitCard: 'CREDIT / DEBIT CARD', mercadoPago: 'MERCADO PAGO', creditCardCopy: 'Pay securely with the card form.', payWithMercadoPago: 'PAY WITH MERCADO PAGO',
     payWithMercadoPagoCopy: 'Continue to Mercado Pago to use your account and available payment methods.', redirectingToMercadoPago: 'Redirecting to Mercado Pago…',
-    hostedPaymentPending: 'Your Mercado Pago checkout is pending. Continue with the same payment attempt.'
+    hostedPaymentPending: 'Your Mercado Pago checkout is pending. Continue with the same payment attempt.', paymentUnavailable: 'Payment is temporarily unavailable. Please try again later.'
   },
   es: {
     language: 'Idioma', english: 'Inglés', spanish: 'Español', store: 'TIENDA', studio: 'ESTUDIO', about: 'ACERCA DE',
@@ -138,9 +138,9 @@ export const translations = {
     completePayment: 'Completá tu pago.', testPaymentNotice: 'Mercado Pago TEST — no se realizará ningún cobro real.', productionPaymentNotice: 'Pago seguro procesado por Mercado Pago.', loadingPayment: 'Cargando formulario de pago seguro…',
     payNow: 'PAGAR', processingPayment: 'Procesando pago…', paymentRejectedRetry: 'El pago fue rechazado. Revisá los datos o probá con otra tarjeta.',
     paymentStatusUnknown: 'No se pudo confirmar el estado del pago.', paymentFormError: 'El formulario de pago seguro informó un error. Intentá nuevamente.', paymentSdkUnavailable: 'No se pudo cargar el formulario de pago seguro.',
-    creditCard: 'TARJETA DE CRÉDITO', creditCardCopy: 'Pagá de forma segura con el formulario de tarjeta.', payWithMercadoPago: 'PAGAR CON MERCADO PAGO',
+    creditCard: 'TARJETA DE CRÉDITO', creditDebitCard: 'TARJETA DE CRÉDITO / DÉBITO', mercadoPago: 'MERCADO PAGO', creditCardCopy: 'Pagá de forma segura con el formulario de tarjeta.', payWithMercadoPago: 'PAGAR CON MERCADO PAGO',
     payWithMercadoPagoCopy: 'Continuá a Mercado Pago para usar tu cuenta y los medios disponibles.', redirectingToMercadoPago: 'Redirigiendo a Mercado Pago…',
-    hostedPaymentPending: 'Tu checkout de Mercado Pago está pendiente. Continuá con el mismo intento de pago.'
+    hostedPaymentPending: 'Tu checkout de Mercado Pago está pendiente. Continuá con el mismo intento de pago.', paymentUnavailable: 'El pago no está disponible temporalmente. Intentá nuevamente más tarde.'
   }
 };
 

@@ -3,7 +3,7 @@ import { formatPrice } from './commerce.js';
 import { CartStore } from './cart-store.js';
 import { CartService } from './cart-service.js';
 import { createCheckout, createHostedCheckout, createPayment, getPaymentConfig, getPublicOrder, getShippingQuotes, orderConfirmationUrl } from './checkout-api.js';
-import { canSubmitCheckout, createSubmitGuard, normalizeShippingPrice, resolveDeliverySelection } from './checkout-submit.js';
+import { canSubmitCheckout, createSubmitGuard, normalizeShippingPrice, paymentErrorMessage, resolveDeliverySelection } from './checkout-submit.js';
 import { CheckoutAttemptStore } from './checkout-attempt.js';
 import { resolveLanguage, translate } from './i18n.js';
 
@@ -78,10 +78,12 @@ function render() {
           <label>${t('postalCode')}<input name="postalCode" inputmode="numeric" autocomplete="postal-code" required maxlength="4" pattern="[0-9]{4}" disabled></label>
           </div>
         </fieldset>
-        <fieldset class="shipping-methods" aria-labelledby="payment-title">
+        <fieldset class="shipping-methods payment-methods" aria-labelledby="payment-title">
           <legend id="payment-title">${t('payment')}</legend>
-          <label class="shipping-method"><input type="radio" name="paymentFlow" value="card"${checkoutAttempt.paymentFlow !== 'checkout_pro' ? ' checked' : ''}><span><strong>${t('creditCard')}</strong><small>${t('creditCardCopy')}</small></span></label>
-          <label class="shipping-method"><input type="radio" name="paymentFlow" value="checkout_pro"${checkoutAttempt.paymentFlow === 'checkout_pro' ? ' checked' : ''}><span><strong>${t('payWithMercadoPago')}</strong><small>${t('payWithMercadoPagoCopy')}</small></span></label>
+          <div class="payment-options">
+            <label class="payment-option"><input type="radio" name="paymentFlow" value="card"${checkoutAttempt.paymentFlow !== 'checkout_pro' ? ' checked' : ''}><span><strong>${t('creditDebitCard')}</strong><small>${t('creditCardCopy')}</small></span></label>
+            <label class="payment-option"><input type="radio" name="paymentFlow" value="checkout_pro"${checkoutAttempt.paymentFlow === 'checkout_pro' ? ' checked' : ''}><span><strong>${t('mercadoPago')}</strong><small>${t('payWithMercadoPagoCopy')}</small></span></label>
+          </div>
           <div id="cardPaymentBrick_container" aria-live="polite"></div>
           <button id="checkout-pro-button" type="button" hidden>${t('payWithMercadoPago')}</button>
           <p id="payment-status" class="checkout-status" role="status"></p>
@@ -295,6 +297,8 @@ async function processHostedPayment({ form = null, existingOrder = null }) {
   const button = scope.querySelector('#checkout-pro-button');
   if (form && !updateCreateButton(form)) return;
   button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  button.textContent = t('redirectingToMercadoPago');
   status.textContent = t('creatingOrder');
   try {
     let order = existingOrder || checkoutAttempt.order;
@@ -314,9 +318,13 @@ async function processHostedPayment({ form = null, existingOrder = null }) {
     const order = checkoutAttempt.order;
     const recovered = order ? await recoverPaymentStatus(order) : null;
     if (recovered?.status === 'paid') return finishPayment(recovered);
+    button.removeAttribute('aria-busy');
+    button.textContent = t('payWithMercadoPago');
     status.textContent = recovered && ['processing', 'awaiting_payment'].includes(recovered.status)
-      ? t('hostedPaymentPending') : error.message;
-    if (!recovered || recovered.status === 'failed') button.disabled = false;
+      ? t('hostedPaymentPending') : paymentErrorMessage(error, t);
+    if (!recovered || recovered.status === 'failed') {
+      button.disabled = false;
+    }
   }
 }
 

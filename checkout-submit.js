@@ -21,3 +21,10 @@ export function resolveDeliverySelection({ pickupSelected, shippingMethodId }) {
 export function normalizeShippingPrice(value) {
   return Math.round(Number(value));
 }
+
+export function paymentErrorMessage(error, translate) {
+  if (error?.status >= 500 || error?.code === 'INTERNAL_ERROR' || error?.message === 'Internal server error.') {
+    return translate('paymentUnavailable');
+  }
+  return error?.statusDetail || error?.message || translate('paymentUnavailable');
+}

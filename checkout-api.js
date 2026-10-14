@@ -16,7 +16,12 @@ export async function createCheckout(items, customer, { deliveryMode, deliveryAd
     throw new Error('Could not connect to the store. Please retry.');
   } finally { clearTimeout(timeout); }
   if (!body || typeof body !== 'object') throw new Error('The store returned an invalid response.');
-  if (!response.ok) throw new Error(body.error || `Could not create the order (${response.status}).`);
+  if (!response.ok) {
+    const error = new Error(body.error || `Could not create the order (${response.status}).`);
+    error.code = body.code;
+    error.status = response.status;
+    throw error;
+  }
   if (!body.order || typeof body.order.id !== 'string' || typeof body.order.publicOrderId !== 'string') throw new Error('The store returned an invalid order.');
   return body.order;
 }

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { CartStore, CART_STORAGE_KEY } from '../cart-store.js';
 import { CartService } from '../cart-service.js';
 import { createCheckout, createHostedCheckout, createPayment, getPaymentConfig, getPublicOrder, getShippingQuotes, orderConfirmationUrl } from '../checkout-api.js';
-import { canSubmitCheckout, createSubmitGuard, normalizeShippingPrice, resolveDeliverySelection } from '../checkout-submit.js';
+import { canSubmitCheckout, createSubmitGuard, normalizeShippingPrice, paymentErrorMessage, resolveDeliverySelection } from '../checkout-submit.js';
 import { CheckoutAttemptStore } from '../checkout-attempt.js';
 import { createApp } from '../server/app.js';
 import { InMemoryOrderRepository } from '../server/orders/order-repository.js';
@@ -63,6 +63,19 @@ test('checkout API sends idempotency and handles success, 400, 409, 500 and inva
   for (const status of [400, 409, 500]) await assert.rejects(createCheckout([], {}, { idempotencyKey: 'frontend_key_123456', fetchImpl: makeFetch(status, { error: `error-${status}` }) }), new RegExp(`error-${status}`));
   await assert.rejects(createCheckout([], {}, { idempotencyKey: 'frontend_key_123456', fetchImpl: makeFetch(200, null, true) }), /invalid response/);
   await assert.rejects(createCheckout([], {}, { idempotencyKey: 'frontend_key_123456', fetchImpl: async () => { throw new Error('offline'); } }), /connect/);
+});
+
+test('checkout errors retain status for safe payment messaging without exposing internal failures', async () => {
+  let error;
+  try {
+    await createCheckout([], {}, { idempotencyKey: 'frontend_safe_error_1234', fetchImpl: async () => ({
+      ok: false, status: 500, json: async () => ({ error: 'Internal server error.', code: 'INTERNAL_ERROR' })
+    }) });
+  } catch (caught) { error = caught; }
+  assert.equal(error.status, 500);
+  assert.equal(error.code, 'INTERNAL_ERROR');
+  assert.equal(paymentErrorMessage(error, key => ({ paymentUnavailable: 'safe message' })[key]), 'safe message');
+  assert.equal(paymentErrorMessage(new Error('Readable error'), key => key), 'Readable error');
 });
 
 test('checkout API sends only the selected delivery modality fields', async () => {
