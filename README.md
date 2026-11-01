@@ -1,8 +1,22 @@
-# LAIN Studio / Store
+# 7pachhh / Store
 
 Sitio HTML/CSS/JavaScript con un backend Express pequeño para catálogo, carrito,
 checkout y órdenes internas. Mercado Pago está integrado con Card Payment Brick
 y Checkout API Orders, con selección explícita entre test y producción.
+
+## Criterios de diseño
+
+| Decisión observable | Motivo práctico | Trade-off |
+| --- | --- | --- |
+| El servidor vuelve a resolver producto, variante, precio y moneda desde el catálogo | El navegador no es una fuente confiable para calcular el importe de una orden. | Los cambios de catálogo deben mantenerse compatibles entre la presentación y la validación del servidor. |
+| Las órdenes se escriben en PostgreSQL, con transacciones y claves de idempotencia | Repetir una petición por reintento o timeout no debería crear órdenes o pagos duplicados. | Requiere PostgreSQL y aplicar migraciones antes de ejecutar la versión correspondiente. |
+| Cada operación de pago tiene un `payment_attempt` durable separado de la orden | Conserva el seguimiento del proveedor y permite consultar su estado sin volver a crear el pago. | Hay más estados y registros que administrar; la conciliación forma parte del flujo comercial. |
+| Webhooks, reconciliación y respuestas públicas tienen límites explícitos | La confirmación no depende solo del retorno del navegador; las páginas públicas no deben revelar datos del comprador. | Un pago puede permanecer en procesamiento o requerir revisión si la respuesta del proveedor es ambigua. |
+| Test y producción usan configuraciones y credenciales separadas | Reduce el riesgo de mezclar pagos de prueba con credenciales reales. | Cada entorno necesita su propia configuración y validación. |
+| 7pachhh Ops es local y de solo lectura | Permite consultar órdenes sin exponer una interfaz administrativa de escritura al público. | Solo está disponible localmente; el acceso remoto requeriría autenticación adicional. |
+| Cotizaciones de envío se desactivan si faltan datos o credenciales | Evita mostrar tarifas inventadas o no verificables. | Sin configuración válida, el checkout no puede presentar cotizaciones reales. |
+
+Estos criterios describen los trade-offs que se observan en la implementación, no una reconstrucción de las intenciones históricas de cada decisión.
 
 ## Ejecutar
 
@@ -32,7 +46,7 @@ efímeros en entornos sandbox. Cobertura: `npm run test:coverage`.
 - `server/catalog`: resolución server-side de producto, variante, precio y moneda.
 - `server/orders`: modelo, state machine y contrato con implementaciones en
   memoria y PostgreSQL.
-- `server/payments/payment-provider.js`: contrato del futuro proveedor de pagos.
+- `server/payments`: contrato y adaptador del proveedor de pagos, intentos persistidos y reconciliación.
 - `server/app.js`: API y archivos estáticos.
 
 Flujo actual:
@@ -57,13 +71,18 @@ El cuerpo de creación contiene únicamente items (`productId`, `variantId`,
 el cliente se ignora; subtotal y total siempre se calculan usando el catálogo del
 servidor.
 
-## Próxima integración de pagos
+## Integración de pagos y estado de verificación
 
 El contrato, el adaptador de Mercado Pago, la persistencia de intentos, la state
-machine y el webhook existen en backend para el entorno de test. El storefront
-carga Card Payment Brick desde el SDK oficial, obtiene sólo la Public Key desde
-el backend y envía el token resultante al endpoint de pagos. Falta validar el
-recorrido E2E con credenciales y tarjetas TEST reales.
+machine y el webhook están implementados. El storefront carga Card Payment Brick
+desde el SDK oficial, obtiene sólo la Public Key desde el backend y envía el token
+resultante al endpoint de pagos. También puede iniciar Checkout Pro.
+
+El propietario del proyecto confirmó una compra exitosa de punta a punta. Eso
+verifica el recorrido de éxito realizado; no implica por sí solo que se hayan
+validado todos los estados del proveedor, como rechazo, pago pendiente, reembolso
+o contracargo. Las pruebas automatizadas y de integración disponibles se describen
+más abajo y en sus scripts correspondientes.
 
 No deben agregarse credenciales al repositorio; `.env.example` contiene solamente
 valores ilustrativos.
@@ -180,7 +199,7 @@ marcado para revisión y se emite un log estructurado con el
 `paymentAttemptId`, sin tokens. Para operar sin consultar directamente
 PostgreSQL, buscar ese ID en los logs y consultar el estado público de la orden;
 no existe un endpoint HTTP de reconciliación manual. Cualquier futura acción
-administrativa de escritura debe implementarse en LAIN Ops con autenticación
+administrativa de escritura debe implementarse en 7pachhh Ops con autenticación
 antes de exponerse remotamente.
 
 Endpoints:
@@ -236,9 +255,9 @@ Las credenciales y el access token nunca se exponen al navegador. Con
 `ENVIOPACK_ENABLED=false` o credenciales incompletas, el endpoint responde
 `shipping_provider_not_configured` sin inventar tarifas.
 
-## LAIN Ops — local only
+## 7pachhh Ops — local only
 
-LAIN Ops es una aplicación read-only separada del storefront para consultar
+7pachhh Ops es una aplicación read-only separada del storefront para consultar
 órdenes desde la misma base PostgreSQL. No ejecuta migraciones automáticamente.
 Primero aplicá las migraciones desde el proceso habitual y luego iniciá Ops:
 
