@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Online store" data-store-description><meta name="theme-color" content="#0C0B0B">
+  <title>Store</title><link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link data-store-fonts rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="shared.css"><link rel="stylesheet" href="catalog.css">
+  <style>
+    :root{--bg:#0C0B0B;--text:#E6E6E6;--muted:#A7A3A3;--muted-2:#777;--accent:#E6E6E6;--panel:#161414;--border:rgba(230,230,230,.2);--border-soft:rgba(230,230,230,.12)}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font-body,'Space Grotesk',sans-serif)}a{color:inherit;text-decoration:none}.wrap{width:min(1180px,calc(100% - 48px));margin:auto}
+    .hero{display:grid;grid-template-columns:minmax(0,1fr) minmax(260px,420px);gap:40px;align-items:center;min-height:420px;padding:72px 0}.hero--without-image{grid-template-columns:minmax(0,1fr)}.hero-copy{max-width:640px}.eyebrow{color:var(--accent);font-size:12px;letter-spacing:.22em}.hero h1{margin:18px 0;font:500 clamp(38px,6vw,68px)/1.06 var(--font-heading,'Montserrat',sans-serif)}.hero p{max-width:560px;color:var(--muted);font-size:17px;line-height:1.55}.hero-image{width:100%;max-height:420px;object-fit:cover}.btn-solid{display:inline-flex;margin-top:18px;padding:14px 18px;border:1px solid var(--accent);font-size:12px;letter-spacing:.14em}.site-footer{border-top:1px solid var(--border-soft);margin-top:80px;display:flex;justify-content:space-between;align-items:center}.contact{border-top:1px solid var(--border-soft);padding:42px 0}.contact h2{font:500 28px var(--font-heading,'Montserrat',sans-serif)}.contact a{text-decoration:underline}.empty-image{display:none}
+    @media(max-width:760px){.wrap{width:min(100% - 32px,600px)}.hero{display:block;padding:44px 0}.hero-image{margin-top:30px;max-height:300px}.site-footer{align-items:flex-start;flex-direction:column;gap:18px}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a href="/" class="logo" aria-label="Home"><img data-brand-logo src="/img/logo.svg" alt="YOUR BRAND" width="52" height="43" class="logo-icon"><span data-brand-wordmark hidden>YOUR BRAND</span></a>
+      <button class="mobile-menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="main-navigation">☰</button>
+      <nav id="main-navigation" data-store-navigation data-include-language="true" aria-label="Main navigation"></nav>
+    </header>
+    <main>
+      <section class="hero hero--without-image"><div class="hero-copy"><span class="eyebrow" data-hero-eyebrow>YOUR BRAND / COLLECTION</span><h1 data-hero-title>Your next collection starts here.</h1><p data-hero-copy>Replace this text with your brand message.</p><a class="btn-solid" href="#store">EXPLORE STORE ↘</a></div><img class="hero-image" data-hero-image alt="Featured collection" hidden></section>
+      <section id="store" class="catalog section-header-section" aria-label="Product collection"><div id="catalog-content" aria-live="polite"></div></section>
+      <section id="contact" class="contact" aria-labelledby="contact-title"><span class="eyebrow">CONTACT</span><h2 id="contact-title">Questions about your order?</h2><p><a data-contact-email href="mailto:hello@example.com">hello@example.com</a></p></section>
+    </main>
+    <footer class="site-footer"><span class="footer-loc">© <span data-year></span> <span data-brand-name>YOUR BRAND</span></span><nav data-store-legal class="footer-links" aria-label="Legal"></nav></footer>
+  </div>
+  <dialog id="cart-dialog" class="cart-dialog" aria-labelledby="cart-title"><div id="cart-content"></div></dialog>
+  <script type="module">
+    import { storeConfig } from './config/store-config.js';
+    import './store-ui.js';
+    document.title=`${storeConfig.brand.name} — Store`;
+    document.querySelector('[data-hero-eyebrow]').textContent=storeConfig.brand.hero.eyebrow; document.querySelector('[data-hero-title]').textContent=storeConfig.brand.hero.title; document.querySelector('[data-hero-copy]').textContent=storeConfig.brand.hero.copy;
+    const hero=document.querySelector('[data-hero-image]'); const showHeroImage=storeConfig.brand.hero.showImage!==false&&Boolean(storeConfig.brand.hero.image); hero.closest('.hero').classList.toggle('hero--without-image',!showHeroImage); if(showHeroImage){hero.src=storeConfig.brand.hero.image;hero.alt=storeConfig.brand.hero.imageAlt;hero.hidden=false}
+  </script>
+  <script type="module" src="catalog.js"></script><script type="module" src="contact.js"></script>
+</body></html>

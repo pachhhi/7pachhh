@@ -1,6 +1,6 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, posix, resolve } from 'node:path';
 import { CatalogService } from './catalog/catalog-service.js';
 import { InMemoryOrderRepository } from './orders/order-repository.js';
 import { OrderService } from './orders/order-service.js';
@@ -104,6 +104,13 @@ export function createApp({ orderRepository = new InMemoryOrderRepository(), pay
     } catch (error) { next(error); }
   });
   app.use(['/server', '/test', '/scripts', '/ops', '/package.json', '/package-lock.json'], (_request, response) => response.sendStatus(404));
+  app.use((request, response, next) => {
+    let pathname;
+    try { pathname = posix.normalize(decodeURIComponent(request.path)).toLowerCase(); }
+    catch { return next(); }
+    if (pathname === '/store-template' || pathname.startsWith('/store-template/')) return response.sendStatus(404);
+    next();
+  });
   app.use('/img/outfit', (request, response, next) => request.path.endsWith('.png') ? response.sendStatus(404) : next());
   app.use('/img/lain-bg-skyline-header.png', (_request, response) => response.sendStatus(404));
   app.use(express.static(rootDirectory, { extensions: ['html'] }));

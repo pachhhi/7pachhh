@@ -1,103 +1,130 @@
 # 7pachhh / Store
 
-Sitio HTML/CSS/JavaScript con un backend Express pequeño para catálogo, carrito,
-checkout y órdenes internas. Mercado Pago está integrado con Card Payment Brick
-y Checkout API Orders, con selección explícita entre test y producción.
+An HTML/CSS/JavaScript website with a small Express backend for the catalog, cart,
+checkout, and internal orders. Mercado Pago is integrated through Card Payment
+Brick and Checkout API Orders, with explicit selection between test and production.
 
-## Criterios de diseño
+## Design principles
 
-| Decisión observable | Motivo práctico | Trade-off |
+| Observable decision | Practical rationale | Trade-off |
 | --- | --- | --- |
-| El servidor vuelve a resolver producto, variante, precio y moneda desde el catálogo | El navegador no es una fuente confiable para calcular el importe de una orden. | Los cambios de catálogo deben mantenerse compatibles entre la presentación y la validación del servidor. |
-| Las órdenes se escriben en PostgreSQL, con transacciones y claves de idempotencia | Repetir una petición por reintento o timeout no debería crear órdenes o pagos duplicados. | Requiere PostgreSQL y aplicar migraciones antes de ejecutar la versión correspondiente. |
-| Cada operación de pago tiene un `payment_attempt` durable separado de la orden | Conserva el seguimiento del proveedor y permite consultar su estado sin volver a crear el pago. | Hay más estados y registros que administrar; la conciliación forma parte del flujo comercial. |
-| Webhooks, reconciliación y respuestas públicas tienen límites explícitos | La confirmación no depende solo del retorno del navegador; las páginas públicas no deben revelar datos del comprador. | Un pago puede permanecer en procesamiento o requerir revisión si la respuesta del proveedor es ambigua. |
-| Test y producción usan configuraciones y credenciales separadas | Reduce el riesgo de mezclar pagos de prueba con credenciales reales. | Cada entorno necesita su propia configuración y validación. |
-| 7pachhh Ops es local y de solo lectura | Permite consultar órdenes sin exponer una interfaz administrativa de escritura al público. | Solo está disponible localmente; el acceso remoto requeriría autenticación adicional. |
-| Cotizaciones de envío se desactivan si faltan datos o credenciales | Evita mostrar tarifas inventadas o no verificables. | Sin configuración válida, el checkout no puede presentar cotizaciones reales. |
+| The server resolves the product, variant, price, and currency against the catalog again | The browser is not a trustworthy source for calculating an order amount. | Catalog changes must remain compatible across the presentation layer and server validation. |
+| Orders are written to PostgreSQL using transactions and idempotency keys | Retrying a request after a failure or timeout should not create duplicate orders or payments. | Requires PostgreSQL and applying migrations before running the corresponding version. |
+| Each payment operation has a durable `payment_attempt` separate from the order | Preserves provider references and allows status checks without creating the payment again. | More states and records to manage; reconciliation is part of the commerce workflow. |
+| Webhooks, reconciliation, and public responses have explicit boundaries | Confirmation does not rely solely on the browser redirect; public pages must not reveal buyer information. | A payment may remain in processing or require review when the provider response is ambiguous. |
+| Test and production use separate settings and credentials | Reduces the risk of mixing test payments with real credentials. | Each environment requires its own configuration and validation. |
+| 7pachhh Ops is local and read-only | Allows order inspection without exposing a public administration interface with write access. | Available only locally; remote access would require additional authentication. |
+| Shipping quotes are disabled when data or credentials are missing | Avoids displaying fabricated or unverifiable rates. | Without valid configuration, checkout cannot display real quotes. |
 
-Estos criterios describen los trade-offs que se observan en la implementación, no una reconstrucción de las intenciones históricas de cada decisión.
+These principles describe the trade-offs visible in the implementation, rather than reconstructing the historical intent behind every decision.
 
-## Ejecutar
+## Reusable store template
+
+A standalone starting point is included in [`store-template/`](store-template/).
+Copy that directory into a new project to build another store from the shared
+base. It has its own configuration, dependencies, sample catalog, placeholder
+assets, backend, migrations, and tests. It is a reusable baseline, not a copy of
+the current 7pachhh branding or catalog.
+
+From this repository's root, choose a new destination directory:
+
+```sh
+cp -R store-template ../my-store
+cd ../my-store
+npm ci
+npm start
+```
+
+Customize `config/store-config.js`, `products.js`, and the assets in `img/`.
+See the [template README](store-template/README.md) for configuration and setup.
+The template starts in preview mode without `.env`; orders are held in memory,
+and payments and shipping are disabled. Each real store needs its own environment
+configuration, database, credentials, and deployment. If 7pachhh is already using
+port 3000, start the copied template with `PORT=3001 npm start`.
+
+Installed dependencies, private environment files, and local agent configuration
+are excluded from the bundled copy. The `store-template/` directory is available
+in the repository but is not served by the 7pachhh storefront.
+
+## Run
 
 ```sh
 npm install
 npm start
 ```
 
-Abrir `http://localhost:3000`. Para ejecutar las pruebas:
+Open `http://localhost:3000`. To run the tests:
 
 ```sh
 npm test
 ```
 
-La suite HTTP usa Supertest y puede requerir permiso para abrir sockets locales
-efímeros en entornos sandbox. Cobertura: `npm run test:coverage`.
+The HTTP suite uses Supertest and may require permission to open ephemeral local
+sockets in sandboxed environments. Coverage: `npm run test:coverage`.
 
-## Arquitectura comercial
+## Commerce architecture
 
-- `products.js`: catálogo compartido. El navegador lo usa para presentar los
-  productos y el servidor lo usa como fuente autoritativa de precios.
-- `catalog.js`: navegación y renderizado de catálogo, ficha y panel del carrito.
-- `cart-store.js`: persistencia local y tolerancia a errores de `localStorage`.
-- `cart-service.js`: validación y operaciones del carrito, sin dependencias del DOM.
-- `checkout.html`, `checkout.js`, `checkout.css`: resumen, datos del comprador y
-  creación de una orden interna. Nunca envían precios al servidor.
-- `server/catalog`: resolución server-side de producto, variante, precio y moneda.
-- `server/orders`: modelo, state machine y contrato con implementaciones en
-  memoria y PostgreSQL.
-- `server/payments`: contrato y adaptador del proveedor de pagos, intentos persistidos y reconciliación.
-- `server/app.js`: API y archivos estáticos.
+- `products.js`: shared catalog. The browser uses it to display products, and the
+  server uses it as the authoritative source of prices.
+- `catalog.js`: navigation and rendering for the catalog, product details, and cart panel.
+- `cart-store.js`: local persistence and tolerance of `localStorage` failures.
+- `cart-service.js`: cart validation and operations, without DOM dependencies.
+- `checkout.html`, `checkout.js`, `checkout.css`: order summary, buyer information,
+  and internal order creation. They never send prices to the server.
+- `server/catalog`: server-side resolution of product, variant, price, and currency.
+- `server/orders`: model, state machine, and repository contract with in-memory
+  and PostgreSQL implementations.
+- `server/payments`: payment-provider contract and adapter, persisted attempts, and reconciliation.
+- `server/app.js`: API and static files.
 
-Flujo actual:
+Current flow:
 
 ```text
 Catalog -> Cart (localStorage) -> Checkout -> POST /api/checkout
         -> validate against catalog -> internal order (pending)
 ```
 
-En runtime, órdenes, items, claves idempotentes e intentos de pago se guardan en
-PostgreSQL. El repositorio en memoria se utiliza únicamente en pruebas unitarias.
+At runtime, orders, items, idempotency keys, and payment attempts are stored in
+PostgreSQL. The in-memory repository is used only in unit tests.
 
-## API interna
+## Internal API
 
-- `POST /api/checkout`: prepara una orden interna desde checkout.
-- `POST /api/shipping/quotes`: cotiza métodos de envío para el carrito.
-- `GET /api/public/orders/:publicOrderId`: entrega una confirmación sanitizada,
-  sin datos del comprador ni dirección.
+- `POST /api/checkout`: prepares an internal order from checkout.
+- `POST /api/shipping/quotes`: quotes shipping methods for the cart.
+- `GET /api/public/orders/:publicOrderId`: returns a sanitized confirmation,
+  without buyer information or an address.
 
-El cuerpo de creación contiene únicamente items (`productId`, `variantId`,
-`color`, `quantity`) y datos básicos del comprador. Cualquier precio enviado por
-el cliente se ignora; subtotal y total siempre se calculan usando el catálogo del
-servidor.
+The creation payload contains only items (`productId`, `variantId`, `color`,
+`quantity`) and basic buyer information. Any client-supplied price is ignored;
+subtotal and total are always calculated using the server catalog.
 
-## Integración de pagos y estado de verificación
+## Payment integration and verification status
 
-El contrato, el adaptador de Mercado Pago, la persistencia de intentos, la state
-machine y el webhook están implementados. El storefront carga Card Payment Brick
-desde el SDK oficial, obtiene sólo la Public Key desde el backend y envía el token
-resultante al endpoint de pagos. También puede iniciar Checkout Pro.
+The contract, Mercado Pago adapter, attempt persistence, state machine, and webhook
+are implemented. The storefront loads Card Payment Brick from the official SDK,
+obtains only the Public Key from the backend, and sends the resulting token to
+the payment endpoint. It can also initiate Checkout Pro.
 
-El propietario del proyecto confirmó una compra exitosa de punta a punta. Eso
-verifica el recorrido de éxito realizado; no implica por sí solo que se hayan
-validado todos los estados del proveedor, como rechazo, pago pendiente, reembolso
-o contracargo. Las pruebas automatizadas y de integración disponibles se describen
-más abajo y en sus scripts correspondientes.
+The project owner confirmed a successful end-to-end purchase. This verifies the
+successful path exercised; it does not by itself mean that all provider states
+have been validated, such as rejection, pending payment, refund, or chargeback.
+The available automated and integration tests are described below and in their
+corresponding scripts.
 
-No deben agregarse credenciales al repositorio; `.env.example` contiene solamente
-valores ilustrativos.
+Credentials must not be added to the repository; `.env.example` contains only
+illustrative values.
 
 ## PostgreSQL
 
-Runtime utiliza `PostgresOrderRepository`; `InMemoryOrderRepository` se conserva
-para tests unitarios. Se requiere PostgreSQL y dos bases separadas, por ejemplo:
+The runtime uses `PostgresOrderRepository`; `InMemoryOrderRepository` is retained
+for unit tests. PostgreSQL and two separate databases are required, for example:
 
 ```sql
 CREATE DATABASE lain_store_dev;
 CREATE DATABASE lain_store_test;
 ```
 
-Copiar `.env.example` a `.env` o exportar las variables sin guardar credenciales:
+Copy `.env.example` to `.env` or export the variables without committing credentials:
 
 ```sh
 export DATABASE_URL=postgresql://user:password@localhost:5432/lain_store_dev
@@ -106,135 +133,134 @@ npm run db:migrate
 npm start
 ```
 
-Migraciones:
+Migrations:
 
 ```sh
 npm run db:migrate
 npm run db:rollback
 ```
 
-`db:rollback` revierte la última migración en `DATABASE_URL`; no debe apuntar a
-producción durante desarrollo. Para resetear la base de desarrollo, ejecutar
-rollback y luego migrate.
+`db:rollback` reverts the latest migration in `DATABASE_URL`; it must not point to
+production during development. To reset the development database, run rollback
+and then migrate.
 
-Las pruebas PostgreSQL usan exclusivamente `TEST_DATABASE_URL`. Puede guardarse
-en un `.env.test` local tomando `.env.test.example` como plantilla. El setup
-rechaza nombres de base que no contengan `test`, rechaza la misma URL que
-`DATABASE_URL`, intenta crear la base si no existe y aplica las migraciones:
+PostgreSQL tests use only `TEST_DATABASE_URL`. It can be stored in a local
+`.env.test`, using `.env.test.example` as a template. Setup rejects database names
+that do not contain `test`, rejects the same URL as `DATABASE_URL`, attempts to
+create the database if it does not exist, and applies migrations:
 
 ```sh
 npm run test:postgres
 npm run test:all
 ```
 
-`npm test` ejecuta solamente la suite sin PostgreSQL. `npm run test:all` es el
-comando completo y no permite que los tests PostgreSQL queden omitidos.
+`npm test` runs only the suite without PostgreSQL. `npm run test:all` is the full
+command and does not allow PostgreSQL tests to be skipped.
 
-El schema persiste `orders`, `order_items`, `idempotency_keys` y
-`payment_attempts`. Todos los montos son `BIGINT` en minor units. Creación de
-orden + items + idempotencia ocurre en una transacción. Las actualizaciones de
-orden usan `version` como optimistic concurrency control; los claims de pago
-usan transacción y `SELECT ... FOR UPDATE` sobre la orden.
+The schema persists `orders`, `order_items`, `idempotency_keys`, and
+`payment_attempts`. All amounts are `BIGINT` values in minor units. Order + items
++ idempotency creation occurs in a single transaction. Order updates use `version`
+for optimistic concurrency control; payment claims use a transaction and
+`SELECT ... FOR UPDATE` on the order.
 
-## Mercado Pago — test y producción
+## Mercado Pago — test and production
 
-La integración permanece deshabilitada con `PAYMENT_PROVIDER=none`. El entorno
-se selecciona explícitamente con `PAYMENT_ENV=test|production`. Para pruebas se
-aceptan las variables históricas mostradas abajo; también pueden usarse sus
-equivalentes `MERCADOPAGO_TEST_*` y `MP_TEST_WEBHOOK_SECRET`:
+The integration remains disabled with `PAYMENT_PROVIDER=none`. The environment
+is explicitly selected with `PAYMENT_ENV=test|production`. For tests, the legacy
+variables shown below are accepted; their `MERCADOPAGO_TEST_*` equivalents and
+`MP_TEST_WEBHOOK_SECRET` can also be used:
 
 ```sh
 PAYMENT_PROVIDER=mercadopago
 PAYMENT_ENV=test
-MERCADOPAGO_ACCESS_TOKEN=<test access token, solo backend>
+MERCADOPAGO_ACCESS_TOKEN=<test access token, backend only>
 MERCADOPAGO_PUBLIC_KEY=<test public key>
 MP_WEBHOOK_SECRET=<test webhook secret>
 PUBLIC_BASE_URL=https://example.test
 ```
 
-Producción exige variables separadas y no reutiliza credenciales genéricas:
+Production requires separate variables and does not reuse generic credentials:
 
 ```sh
 PAYMENT_PROVIDER=mercadopago
 PAYMENT_ENV=production
-MERCADOPAGO_PRODUCTION_ACCESS_TOKEN=<production access token, solo backend>
+MERCADOPAGO_PRODUCTION_ACCESS_TOKEN=<production access token, backend only>
 MERCADOPAGO_PRODUCTION_PUBLIC_KEY=<production public key>
 MP_PRODUCTION_WEBHOOK_SECRET=<production webhook secret>
 ```
 
-El Access Token y el secret nunca se envían al browser; `/api/payments/config`
-expone sólo la Public Key y el entorno activo. El storefront carga el SDK oficial
-para Card Payment Brick. La sección de pago permite conservar ese flujo o iniciar
-Checkout Pro mediante una order manual y su `checkout_url`; sus retornos usan
-`PUBLIC_BASE_URL`, pero la confirmación siempre consulta el estado local.
-El Card Brick admite exclusivamente tarjetas de crédito. El Brick entrega
-el token, `payment_method_id`, `issuer_id` y cuotas; el backend fija y valida
-`payment_method.type=credit_card`. Débito y prepaga se rechazan explícitamente
-en lugar de clasificarse como crédito. En esta etapa la allowlist es `visa`,
-`master` y `amex`; debe ampliarse deliberadamente al habilitar otros métodos.
+The Access Token and secret are never sent to the browser; `/api/payments/config`
+exposes only the Public Key and active environment. The storefront loads the
+official SDK for Card Payment Brick. The payment section allows users to keep
+that flow or initiate Checkout Pro through a manual order and its `checkout_url`;
+its return URLs use `PUBLIC_BASE_URL`, but confirmation always checks the local
+state. The Card Brick supports credit cards only. The Brick provides the token,
+`payment_method_id`, `issuer_id`, and installments; the backend sets and validates
+`payment_method.type=credit_card`. Debit and prepaid cards are explicitly rejected
+rather than classified as credit cards. At this stage, the allowlist is `visa`,
+`master`, and `amex`; it must be deliberately expanded when enabling other methods.
 
 ```text
 internal order -> durable payment_attempt -> MercadoPagoProvider
 -> provider result/webhook -> OrderService state policy -> PostgreSQL
 ```
 
-Cada `payment_attempt` usa su UUID persistido como `X-Idempotency-Key` frente a
-Mercado Pago. Un timeout queda `processing`; un retry no vuelve a crear el pago.
-La reconciliación server-side consulta `/v1/orders/:id` y usa los IDs `ORD…` y
-`PAY…` persistidos por separado.
+Each `payment_attempt` uses its persisted UUID as the `X-Idempotency-Key` sent to
+Mercado Pago. A timeout remains `processing`; a retry does not create the payment
+again. Server-side reconciliation queries `/v1/orders/:id` and uses the separately
+persisted `ORD…` and `PAY…` IDs.
 
-El backend ejecuta además una reconciliación al iniciar y cada cinco minutos.
-PostgreSQL asigna cada intento mediante `FOR UPDATE SKIP LOCKED` y un lease corto,
-por lo que dos procesos no consultan simultáneamente el mismo pago. Si el timeout
-ocurrió antes de guardar el ID `ORD…`, se busca la order por el UUID del intento
-en `external_reference` dentro de una ventana temporal y luego se confirma por
-ID. Nunca se repite automáticamente el `POST /v1/orders`. Los pagos aprobados,
-parcialmente reembolsados o con contracargo reciente se vuelven a consultar cada
-seis horas durante una ventana acotada de 30 días para detectar reembolsos y
-reversiones sin degradar un estado final por información atrasada.
+The backend also runs reconciliation at startup and every five minutes.
+PostgreSQL assigns each attempt using `FOR UPDATE SKIP LOCKED` and a short lease,
+so two processes do not query the same payment simultaneously. If a timeout
+occurred before the `ORD…` ID was saved, the order is searched by the attempt UUID
+in `external_reference` within a time window, then confirmed by ID.
+`POST /v1/orders` is never automatically repeated. Approved payments, partially
+refunded payments, and recent chargebacks are checked again every six hours
+within a bounded 30-day window to detect refunds and reversals without downgrading
+a final state because of stale information.
 
-Errores 429, 5xx y timeouts usan backoff acotado. Después de ocho fallos, o ante
-una discrepancia de referencia, importe o identificadores, el intento queda
-marcado para revisión y se emite un log estructurado con el
-`paymentAttemptId`, sin tokens. Para operar sin consultar directamente
-PostgreSQL, buscar ese ID en los logs y consultar el estado público de la orden;
-no existe un endpoint HTTP de reconciliación manual. Cualquier futura acción
-administrativa de escritura debe implementarse en 7pachhh Ops con autenticación
-antes de exponerse remotamente.
+Errors 429, 5xx, and timeouts use bounded backoff. After eight failures, or when
+references, amounts, or identifiers do not match, the attempt is flagged for
+review and a structured log is emitted with the `paymentAttemptId`, without
+tokens. To operate without querying PostgreSQL directly, find that ID in the
+logs and check the order's public status; there is no HTTP endpoint for manual
+reconciliation. Any future administrative write action must be implemented in
+7pachhh Ops with authentication before being exposed remotely.
 
 Endpoints:
 
-- `POST /api/orders/:id/payments`: inicia o recupera el intento idempotente.
-- `GET /api/payments/config`: entrega únicamente la Public Key y el entorno activos.
-- `POST /api/webhooks/mercadopago`: recibe y verifica notificaciones.
+- `POST /api/orders/:id/payments`: starts or recovers the idempotent attempt.
+- `GET /api/payments/config`: returns only the active Public Key and environment.
+- `POST /api/webhooks/mercadopago`: receives and verifies notifications.
 
-La migración `002_mercadopago_attempts.sql` agrega la idempotency key durable del
-provider. No se persisten payloads completos del proveedor ni datos PCI.
+Migration `002_mercadopago_attempts.sql` adds the durable provider idempotency key.
+Full provider payloads and PCI data are not persisted.
 
-## Idempotencia y límites actuales
+## Idempotency and current limitations
 
-`POST /api/checkout` requiere `Idempotency-Key`. La clave
-se guarda junto con una huella del payload en `idempotency_keys`: un retry
-idéntico devuelve la misma orden y una reutilización con otro payload responde
-409. El inicio de pagos usa el mismo mecanismo; mientras una llamada está en
-curso, todos los retries con la misma clave comparten su promesa. La transición
-transaccional a `awaiting_payment`, bajo row lock, impide que otra clave inicie
-un segundo pago para la misma orden.
+`POST /api/checkout` requires `Idempotency-Key`. The key is stored alongside a
+payload fingerprint in `idempotency_keys`: an identical retry returns the same
+order, and reuse with a different payload returns 409. Payment initiation uses
+the same mechanism; while a call is in progress, all retries with the same key
+share its promise. The transactional transition to `awaiting_payment`, under a
+row lock, prevents another key from starting a second payment for the same order.
 
-PostgreSQL conserva las claves tras reinicios y coordina múltiples procesos con
-constraints, transacciones y row locking. La promesa compartida en Node es solo
-una optimización local; la garantía real está en PostgreSQL. Antes de producción
-debe añadirse rate limiting delante de `/api`, idealmente en el proxy y también
-como middleware.
+PostgreSQL preserves keys across restarts and coordinates multiple processes
+using constraints, transactions, and row locking. The shared promise in Node is
+only a local optimization; the actual guarantee is in PostgreSQL. Before
+production, rate limiting must be added in front of `/api`, ideally at the proxy
+and also as middleware.
 
 ## ENVIOPACK SETUP
 
-Esta fase solo consulta tarifas a domicilio; no crea envíos, etiquetas, tracking,
-webhooks ni automatizaciones post-pago. Los pesos y medidas viven en
-`products.js` y deben completarse con datos reales antes de cotizar un producto.
+This phase only queries home-delivery rates; it does not create shipments,
+labels, tracking, webhooks, or post-payment automation. Weights and dimensions
+live in `products.js` and must be populated with real measurements before quoting
+a product.
 
-1. Crear una cuenta en Enviopack y obtener la API Key y Secret Key.
-2. Configurar el backend:
+1. Create an Enviopack account and obtain the API Key and Secret Key.
+2. Configure the backend:
 
 ```sh
 ENVIOPACK_API_KEY=<api key>
@@ -242,112 +268,111 @@ ENVIOPACK_SECRET_KEY=<secret key>
 ENVIOPACK_ENABLED=true
 ```
 
-3. Reiniciar el backend, entrar al checkout e ingresar provincia y CP.
-4. Verificar que aparezcan las cotizaciones reales bajo `SHIPPING METHOD`.
+3. Restart the backend, open checkout, and enter the province and postal code.
+4. Verify that real quotes appear under `SHIPPING METHOD`.
 
-La comprobación live aislada (no forma parte de `npm test`) se ejecuta con:
+The isolated live check (not part of `npm test`) is run with:
 
 ```sh
 npm run test:enviopack-live
 ```
 
-Las credenciales y el access token nunca se exponen al navegador. Con
-`ENVIOPACK_ENABLED=false` o credenciales incompletas, el endpoint responde
-`shipping_provider_not_configured` sin inventar tarifas.
+Credentials and the access token are never exposed to the browser. With
+`ENVIOPACK_ENABLED=false` or incomplete credentials, the endpoint returns
+`shipping_provider_not_configured` without fabricating rates.
 
 ## 7pachhh Ops — local only
 
-7pachhh Ops es una aplicación read-only separada del storefront para consultar
-órdenes desde la misma base PostgreSQL. No ejecuta migraciones automáticamente.
-Primero aplicá las migraciones desde el proceso habitual y luego iniciá Ops:
+7pachhh Ops is a separate read-only application for inspecting orders from the
+same PostgreSQL database. It does not run migrations automatically. Apply
+migrations through the usual process first, then start Ops:
 
 ```sh
 npm run db:migrate
 npm run ops
 ```
 
-Abrir únicamente `http://127.0.0.1:4000`. El proceso siempre bindea a
-`127.0.0.1`, incluso si se configura otro `OPS_PORT`, y puede ejecutarse al mismo
-tiempo que `npm start`. Esta V1 no tiene login porque es localhost-only. Antes de
-exponerla remotamente debe agregarse autenticación o una capa como Cloudflare
-Access; no debe publicarse tal como está.
+Open only `http://127.0.0.1:4000`. The process always binds to `127.0.0.1`, even
+when a different `OPS_PORT` is configured, and can run alongside `npm start`.
+This V1 has no login because it is localhost-only. Before exposing it remotely,
+authentication or a layer such as Cloudflare Access must be added; it must not be
+published as-is.
 
-La lista muestra una sección específica para intentos que alcanzaron revisión
-manual. El detalle de cada orden incluye `provider_order_id`,
-`provider_payment_id`, cantidad de fallos y el último código seguro de
-reconciliación. Ops no permite cambiar estados ni reintentar pagos.
+The list includes a dedicated section for attempts that require manual review.
+Each order's details include `provider_order_id`, `provider_payment_id`, failure
+count, and the latest safe reconciliation error code. Ops does not allow state
+changes or payment retries.
 
-## Secuencia técnica de release
+## Technical release sequence
 
-1. Partir de un commit limpio que incluya todas las migraciones numeradas.
-2. Instalar exactamente el lockfile con `npm ci --omit=dev`.
-3. Cargar las variables del entorno fuera del repositorio.
-4. Ejecutar `npm run db:migrate` una sola vez antes de arrancar la nueva versión.
-5. Arrancar `npm start` bajo el supervisor elegido y comprobar el log de salud de PostgreSQL.
-6. Arrancar Ops sólo en loopback cuando se necesite, accediendo mediante túnel privado.
+1. Start from a clean commit that includes all numbered migrations.
+2. Install exactly what the lockfile specifies with `npm ci --omit=dev`.
+3. Load environment variables outside the repository.
+4. Run `npm run db:migrate` once before starting the new version.
+5. Run `npm start` under the chosen supervisor and check the PostgreSQL health log.
+6. Start Ops only on loopback when needed, accessing it through a private tunnel.
 
-El proxy productivo debe terminar HTTPS, forzar la redirección desde HTTP y
-aplicar rate limiting. El proveedor de PostgreSQL debe tener backups automáticos
-y una restauración verificada. Estas responsabilidades no se implementan dentro
-del proceso Node.
+The production proxy must terminate HTTPS, enforce HTTP-to-HTTPS redirects, and
+apply rate limiting. The PostgreSQL provider must have automated backups and a
+verified restore procedure. These responsibilities are not implemented inside
+the Node process.
 
 ## Railway
 
-`railway.json` configura Railpack, instalación reproducible con el lockfile,
-migraciones como pre-deploy, `npm start`, reinicio automático y el health check
-`/health`. El servidor escucha explícitamente en `0.0.0.0` y utiliza el `PORT`
-inyectado por Railway. El health check responde `503` si PostgreSQL no está
-disponible y no expone detalles de conexión.
+`railway.json` configures Railpack, reproducible installation using the lockfile,
+pre-deploy migrations, `npm start`, automatic restarts, and the `/health` health
+check. The server explicitly listens on `0.0.0.0` and uses the `PORT` injected
+by Railway. The health check returns `503` if PostgreSQL is unavailable and does
+not expose connection details.
 
-Para el primer deployment público, configurar el servicio web en modo seguro,
-sin pagos ni cotizaciones externas. Esto permite publicar la homepage y recibir
-consultas sin aceptar ventas antes de completar las pruebas E2E:
+For the first public deployment, configure the web service in safe mode, without
+payments or external quotes. This allows the homepage to be published and
+inquiries to be received without accepting sales before E2E tests are complete:
 
 ```text
 NODE_ENV=production
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 PAYMENT_PROVIDER=none
 PAYMENT_ENV=test
-PUBLIC_BASE_URL=https://<dominio-publico-railway>
+PUBLIC_BASE_URL=https://<public-railway-domain>
 ENVIOPACK_ENABLED=false
 ```
 
-No cargar credenciales productivas en este primer deployment. Para validar el
-checkout en un entorno separado, usar credenciales TEST, configurar el evento
-`Order (Mercado Pago)` hacia
-`https://<dominio-test>/api/webhooks/mercadopago` y probar Card Payment Brick y
-Checkout Pro de punta a punta. Recién después de verificar pago aprobado,
-rechazado y pendiente, retorno, webhook, reconciliación, pedido persistido y
-cotización/retiro, cambiar a `PAYMENT_ENV=production`, cargar únicamente las
-variables `MERCADOPAGO_PRODUCTION_*` y `MP_PRODUCTION_WEBHOOK_SECRET`, y habilitar
-`ENVIOPACK_ENABLED=true` con sus credenciales. El cambio debe hacerse en un
-deployment controlado y seguido por una compra real de monto mínimo.
+Do not load production credentials for this first deployment. To validate checkout
+in a separate environment, use TEST credentials, configure the `Order (Mercado Pago)`
+event to point to `https://<test-domain>/api/webhooks/mercadopago`, and test Card
+Payment Brick and Checkout Pro end to end. Only after verifying approved,
+rejected, and pending payments, return URLs, webhooks, reconciliation, persisted
+orders, and shipping quotes/pickup should you switch to `PAYMENT_ENV=production`,
+load only the `MERCADOPAGO_PRODUCTION_*` and `MP_PRODUCTION_WEBHOOK_SECRET`
+variables, and enable `ENVIOPACK_ENABLED=true` with its credentials. Make the
+change in a controlled deployment followed by a real purchase for a minimal amount.
 
-Usar la referencia privada `DATABASE_URL` del servicio PostgreSQL dentro del
-mismo proyecto; no configurar `DATABASE_PUBLIC_URL` en la aplicación ni habilitar
-el TCP Proxy de la base. La red privada de Railway ya cifra el tráfico interno.
+Use the private `DATABASE_URL` reference from the PostgreSQL service within the
+same project; do not configure `DATABASE_PUBLIC_URL` in the application or enable
+the database TCP Proxy. Railway's private network already encrypts internal traffic.
 
-Desplegar inicialmente una sola réplica y mantener desactivado Serverless/App
-Sleeping: el reconciliador comienza con el backend, persiste sus leases y estado
-en PostgreSQL y necesita que el proceso siga activo para ejecutar el ciclo cada
-cinco minutos. Sus locks PostgreSQL permiten agregar otra réplica posteriormente.
+Initially deploy a single replica and keep Serverless/App Sleeping disabled: the
+reconciler starts with the backend, persists its leases and state in PostgreSQL,
+and needs the process to remain active to run its five-minute cycle. Its
+PostgreSQL locks allow another replica to be added later.
 
-Ops no forma parte del proceso web y su bind continúa fijo a `127.0.0.1:4000`.
-No crearle dominio público ni mapear ese puerto. Para el primer deployment puede
-quedar sin ejecutar; cualquier acceso remoto futuro requiere un túnel o gateway
-privado autenticado.
+Ops is not part of the web process, and its bind address remains fixed at
+`127.0.0.1:4000`. Do not create a public domain for it or map that port. For the
+first deployment it can remain stopped; any future remote access requires an
+authenticated private tunnel or gateway.
 
-### Smoke test y rollback
+### Smoke test and rollback
 
-Después de cada deployment comprobar, en este orden: `GET /health` devuelve 200,
-la homepage y `contact.js` cargan, el selector ES/EN funciona, los anchors STUDIO
-y STORE navegan, el catálogo filtra productos y la API pública no expone datos
-internos. Con pagos deshabilitados, `GET /api/payments/config` debe informar
-`configured: false`. En el entorno TEST, además completar una prueba de cada flujo
-de pago y confirmar el estado final consultando la orden pública y PostgreSQL.
+After each deployment, check the following in order: `GET /health` returns 200,
+the homepage and `contact.js` load, the ES/EN selector works, the STUDIO and STORE
+anchors navigate, the catalog filters products, and the public API does not
+expose internal data. With payments disabled, `GET /api/payments/config` must
+report `configured: false`. In the TEST environment, also complete a test of each
+payment flow and confirm the final state through the public order and PostgreSQL.
 
-Si falla el health check, no promover el deployment. Si el fallo aparece después,
-restaurar desde Railway el deployment anterior; las migraciones actuales son
-aditivas, por lo que la versión anterior tolera la migración `009`. Ejecutar
-`npm run db:rollback` sólo con backup verificado y únicamente si se decide retirar
-también esa migración; nunca usarlo como primera respuesta ante un fallo de la app.
+If the health check fails, do not promote the deployment. If a failure appears
+afterward, restore the previous deployment through Railway; the current migrations
+are additive, so the previous version tolerates migration `009`. Run
+`npm run db:rollback` only with a verified backup and only if the decision is made
+to remove that migration as well; never use it as the first response to an app failure.

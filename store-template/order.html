@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Store order confirmation." data-store-description><meta name="theme-color" content="#0C0B0B">
+  <title>Order — Store</title>
+  <link rel="icon" href="/img/favicon.svg" type="image/svg+xml">
+  <link data-store-fonts href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="shared.css">
+  <link rel="stylesheet" href="checkout.css">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <a href="/" class="logo" aria-label="Store home"><img data-brand-logo src="/img/logo.svg" alt="YOUR BRAND" width="52" height="43" class="logo-icon"><span data-brand-wordmark hidden>YOUR BRAND</span></a>
+      <button class="mobile-menu-toggle" type="button" aria-label="Open navigation menu" aria-expanded="false" aria-controls="main-navigation">☰</button>
+      <nav id="main-navigation" data-store-navigation aria-label="Main navigation"></nav>
+    </header>
+    <main class="checkout" id="order-root" aria-live="polite" aria-busy="true">
+      <section class="checkout-empty"><span>STORE / ORDER</span><h1>Loading order…</h1><p>Please wait while we recover your order.</p></section>
+    </main>
+    <footer class="site-footer"><span class="footer-loc">© <span data-year></span> <span data-brand-name>YOUR BRAND</span></span><nav data-store-legal class="footer-links" aria-label="Legal"></nav></footer>
+  </div>
+  <script type="module" src="order.js"></script>
+</body>
+</html>

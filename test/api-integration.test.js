@@ -62,6 +62,16 @@ test('body limit, unknown route, wrong method, missing order and source exposure
   await request(app).get('/server/app.js').expect(404);
 });
 
+test('bundled template source is not served by the storefront', async () => {
+  const app = createTestApp();
+  for (const path of ['/store-template', '/store-template/README.md', '/store-template/server/index.js',
+    '/store-template/package.json', '/store-template/.env.example', '/store%2Dtemplate/server/index.js',
+    '//store-template/server/index.js', '/store-template%2Fserver%2Findex.js']) {
+    await request(app).get(path).expect(404);
+  }
+  await request(app).get('/').expect(200);
+});
+
 test('public order access uses an independent identifier and never exposes customer or internal IDs', async () => {
   const app = createTestApp();
   const created = await request(app).post('/api/checkout').set('Idempotency-Key', key('public_access')).send(payload).expect(201);
